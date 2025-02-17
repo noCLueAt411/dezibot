@@ -2,26 +2,125 @@
 #include <Dezibot.h>
 #include <veml6040.h>
 #include <vector>
+#include <numeric>
+
+
+
+struct ColorValues {
+    int red, green, blue, white;
+
+    ColorValues() = default;
+    ColorValues(int r, int g, int b, int w) : red(r), green(g), blue(b), white(w) {}
+
+    bool in_bound(ColorValues& expectation, ColorValues& std_dev) {
+        int std_dev_tolerance_factor = 3;
+        return value_in_bound(red, expectation.red, std_dev_tolerance_factor*std_dev.red) && 
+            value_in_bound(green, expectation.green, std_dev_tolerance_factor*std_dev.green) && 
+            value_in_bound(blue, expectation.blue, std_dev_tolerance_factor*std_dev.blue) && 
+            value_in_bound(white, expectation.white, std_dev_tolerance_factor*std_dev.white);
+    }
+
+    bool value_in_bound(int& value, int& expected_value, int tolerance) {
+        int higher_bound = expected_value + tolerance;
+        int lower_bound = expected_value - tolerance;
+        return lower_bound <= value && higher_bound >= value;
+    }
+
+    int total_dist(ColorValues& expectation) {
+         return std::abs(std::abs(red) - std::abs(expectation.red)) + std::abs(std::abs(green) - std::abs(expectation.green)) + std::abs(std::abs(blue) - std::abs(expectation.blue)) + std::abs(std::abs(white) - std::abs(expectation.white));
+    }
+};
+
+struct ColorBound {
+    ColorValues expectation;
+    ColorValues standard_deviation;
+
+    ColorBound() = default;
+    ColorBound(std::vector<ColorValues> color_values_list) {
+        calculate_expectations(color_values_list);
+        calculate_standard_deviations(color_values_list);
+    }
+
+    private:
+    void calculate_expectations(std::vector<ColorValues> values) {
+        std::vector<int> red_values, green_values, blue_values, white_values;
+        expectation.red = static_cast<int>(std::accumulate(values.begin(), values.end(), 0,
+            [](int sum, const ColorValues& v) { return sum + v.red; }) / values.size());
+
+        expectation.green = static_cast<int>(std::accumulate(values.begin(), values.end(), 0,
+            [](int sum, const ColorValues& v) { return sum + v.green; }) / values.size());
+
+        expectation.blue = static_cast<int>(std::accumulate(values.begin(), values.end(), 0,
+            [](int sum, const ColorValues& v) { return sum + v.blue; }) / values.size());
+
+        expectation.white = static_cast<int>(std::accumulate(values.begin(), values.end(), 0,
+            [](int sum, const ColorValues& v) { return sum + v.white; }) / values.size());
+    }
+
+    void calculate_standard_deviations(std::vector<ColorValues> values) {
+        std::vector<int> red_values, green_values, blue_values, white_values;
+        standard_deviation.red = static_cast<int>(std::sqrt(std::accumulate(values.begin(), values.end(), 0,
+            [this](float sum, const ColorValues& v) { return sum + std::pow(v.red - expectation.red, 2); }) / values.size()));
+
+        standard_deviation.green = static_cast<int>(std::sqrt(std::accumulate(values.begin(), values.end(), 0,
+            [this](float sum, const ColorValues& v) { return sum + std::pow(v.green - expectation.green, 2); }) / values.size()));
+
+        standard_deviation.blue = static_cast<int>(std::sqrt(std::accumulate(values.begin(), values.end(), 0,
+            [this](float sum, const ColorValues& v) { return sum + std::pow(v.blue - expectation.blue, 2); }) / values.size()));
+
+        standard_deviation.white = static_cast<int>(std::sqrt(std::accumulate(values.begin(), values.end(), 0,
+            [this](float sum, const ColorValues& v) { return sum + std::pow(v.white - expectation.white, 2); }) / values.size()));
+    }
+};
+
+struct ColorData {
+    String name;
+    std::vector<ColorValues> color_values_list;
+    ColorBound bound;
+
+    ColorData(String name) : name(name) {}
+
+    void calculate_statistical_data() {
+        bound = ColorBound(color_values_list);
+    }
+};
+
+
+
+
 
 VEML6040 color_detection;
 Dezibot dezibot;
 
-struct rgbw_values {
-    int red;
-    int green;
-    int blue;
-    int white;
-};
 
-int white_counter = 0, black_counter = 0, red_counter = 0, green_counter = 0;
-int white_total = 0, black_total = 0, red_total = 0, green_total = 0;
-int white_ambient_total = 0, black_ambient_total = 0, red_ambient_total = 0, green_ambient_total = 0;
-int white_light_total = 0, black_light_total = 0, red_light_total = 0, green_light_total = 0;
+ColorValues get_cur_color() {
+    return ColorValues(
+        color_detection.getRed(),
+        color_detection.getGreen(),
+        color_detection.getBlue(),
+        color_detection.getWhite()
+    );
+}
+
+void collect_color_data(ColorData* color_data, int& amount_data) {
+    for(int i=0; i<amount_data; i++) {
+        dezibot.display.clear();
+        dezibot.display.println("add " + color_data->name + " values");
+        ColorValues cur_color = get_cur_color();
+        color_data->color_values_list.push_back(cur_color);
+    }
+}
+
+
+ColorData white_data = ColorData("white");
+ColorData black_data = ColorData("black");
+ColorData red_data = ColorData("red");
+ColorData green_data = ColorData("green");
+
+std::vector<ColorData*> data = {&white_data, &black_data, &red_data, &green_data};
 
 int amount_values = 50;
-bool waited = false;
-
-std::vector<int> white_values, black_values, red_values, green_values;
+bool initialized = false;
 
 void setup() {
     dezibot.begin();
@@ -30,82 +129,32 @@ void setup() {
 }
 
 void loop() {
-    if (!waited) {
-        dezibot.display.println("wait for white");
-        delay(5000);
-        waited = true;
-    }
-    
-    if (white_counter < amount_values) {
-        dezibot.display.clear();
-        dezibot.display.println("add white values");
-        int white_value = color_detection.getWhite();
-        white_values.push_back(white_value);
-        white_total += white_value;
-        white_counter++;
-        if (white_counter >= amount_values) {
+    if(!initialized) {
+        for(ColorData* color_data : data) {
             dezibot.display.clear();
-            dezibot.display.println("get ready for black");
+            dezibot.display.println("place robot on\n" + color_data->name);
             delay(3000);
+            collect_color_data(color_data, amount_values);
+            color_data->calculate_statistical_data();
         }
-    } else if (black_counter < amount_values) {
-        dezibot.display.clear();
-        dezibot.display.println("add black values");
-        int black_value = color_detection.getWhite();
-        black_values.push_back(black_value);
-        black_total += black_value;
-        black_counter++;
-        if (black_counter >= amount_values) {
-            dezibot.display.clear();
-            dezibot.display.println("get ready for red");
-            delay(3000);
-        }
-    } else if (red_counter < amount_values) {
-        dezibot.display.clear();
-        dezibot.display.println("add red values");
-        int red_value = color_detection.getRed();
-        red_values.push_back(red_value);
-        red_total += red_value;
-        red_counter++;
-        if (red_counter >= amount_values) {
-            dezibot.display.clear();
-            dezibot.display.println("get ready for green");
-            delay(3000);
-        }
-    } else if (green_counter < amount_values) {
-        dezibot.display.clear();
-        dezibot.display.println("add green values");
-        int green_value = color_detection.getGreen();
-        green_values.push_back(green_value);
-        green_total += green_value;
-        green_counter++;
-    } else {
-        float e_x_white = static_cast<float>(white_total) / static_cast<float>(amount_values);
-        float e_x_black = static_cast<float>(black_total) / static_cast<float>(amount_values);
-        float e_x_red = static_cast<float>(red_total) / static_cast<float>(amount_values);
-        float e_x_green = static_cast<float>(green_total) / static_cast<float>(amount_values);
+        initialized = true;
+    } 
 
-        float sigma_x_white = sqrt(e_x_white);
-        float sigma_x_black = sqrt(e_x_black);
-        float sigma_x_red = sqrt(e_x_red);
-        float sigma_x_green = sqrt(e_x_green);
+    ColorValues cur_color = get_cur_color();
 
-        dezibot.display.clear();
-        int cur_white = color_detection.getWhite();
-        int cur_red = color_detection.getRed();
-        int cur_green = color_detection.getGreen();
-        
-        if (cur_white >= e_x_white - sigma_x_white && cur_white <= e_x_white + sigma_x_white) {
-            dezibot.display.println("White");
-        } else if (cur_white >= e_x_black - sigma_x_black && cur_white <= e_x_black + sigma_x_black) {
-            dezibot.display.println("Black");
-        } else if (cur_red >= e_x_red - sigma_x_red && cur_red <= e_x_red + sigma_x_red) {
-            dezibot.display.println("Red");
-        } else if (cur_green >= e_x_green - sigma_x_green && cur_green <= e_x_green + sigma_x_green) {
-            dezibot.display.println("Green");
-        } else {
-            dezibot.display.println("Unknown");
+    int total_red, total_green, total_white, total_black;
+
+    bool identified = false;
+    dezibot.display.clear();
+    for(ColorData* color_data : data) {
+        if(cur_color.in_bound(color_data->bound.expectation, color_data->bound.standard_deviation)) {
+            dezibot.display.println(color_data->name);
+            identified = true;
+            break;
         }
-        delay(333);
     }
+    if(!identified) {
+        dezibot.display.println("Unknown");
+    }
+    delay(333);
 }

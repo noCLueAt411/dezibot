@@ -39,3 +39,8 @@ docs/*
 .history/
 *.vsix
 *.workspace
+
+.vscode/*
+.pio/*
+embedded_systems_project/.idea/*
+embedded_systems_project/vscode/*
