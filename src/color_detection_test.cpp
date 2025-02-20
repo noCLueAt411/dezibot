@@ -101,18 +101,18 @@ void collect_color_data(ColorData* color_data, int& amount_data) {
     for(int i=0; i<amount_data; i++) {
         dezibot.display.clear();
         dezibot.display.println("add " + color_data->name + " values");
-        ColorValues cur_color = get_cur_color();
+        const ColorValues cur_color = get_cur_color();
         color_data->color_values_list.push_back(cur_color);
     }
 }
 
 
-ColorData white_data = ColorData("white");
-ColorData black_data = ColorData("black");
-ColorData red_data = ColorData("red");
-ColorData green_data = ColorData("green");
+ColorData left_side = ColorData("left");
+ColorData right_side = ColorData("right");
+ColorData middle = ColorData("middle");
+//ColorData green_data = ColorData("green");
 
-std::vector<ColorData*> data = {&white_data, &black_data, &red_data, &green_data};
+std::vector<ColorData*> data = {&left_side, &right_side, &middle};//{&white_data, &black_data, &red_data, &green_data};
 
 int amount_values = 50;
 
@@ -140,11 +140,22 @@ void loop() {
         if(cur_color.in_bound(color_data->bound.expectation, color_data->bound.standard_deviation)) {
             dezibot.display.println(color_data->name);
             identified = true;
+            dezibot.motion.stop();
+            if(color_data->name == "left") {
+                dezibot.motion.rotateClockwise();
+            } else if(color_data->name == "right") {
+                dezibot.motion.rotateAntiClockwise();
+            } else if(color_data->name == "middle") {
+                dezibot.motion.move();
+            }
             break;
         }
     }
+    
     if(!identified) {
         dezibot.display.println("Unknown");
+        //dezibot.motion.stop();
     }
+
     delay(333);
 }
