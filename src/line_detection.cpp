@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Dezibot.h>
+#include <InfraredHandler/InfraredHandler.h>
 #include <veml6040.h>
 #include <vector>
 #include <numeric>
@@ -165,14 +166,15 @@ std::vector<ColorData *> data = {&left_side, &right_side, &middle, &crossing, &b
 
 int amount_values = 50;
 
+InfraredHandler ir(dezibot);
+
 void setup()
 {
     dezibot.begin();
     color_detection.begin();
     dezibot.multiColorLight.setLed(BOTTOM, 255, 255, 255);
 
-    dezibot.infraredLight.begin();
-    dezibot.infraredLight.front.turnOn();
+    ir.begin();
 
     for (ColorData *color_data : data)
     {
@@ -182,22 +184,10 @@ void setup()
         collect_color_data(color_data, amount_values);
         color_data->calculate_statistical_data();
     }
-
-    //dezibot.infraredLight.front.sendFrequency(38000);
 }
 
 void loop()
 {
-    uint16_t distance = dezibot.lightDetection.getValue(IR_FRONT);
-    //dezibot.display.println(distance);
-
-    while(distance > 4090){
-        dezibot.display.println("STOP");
-        dezibot.motion.stop();
-        distance = dezibot.lightDetection.getValue(IR_FRONT);
-    }
-
-    dezibot.display.println(distance);
 
     ColorValues cur_color = get_cur_rel_color();
 
