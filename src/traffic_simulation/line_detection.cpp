@@ -70,26 +70,33 @@ void LineDetection::begin() {
 }
 
 void LineDetection::calibrateColors() {
-    for (ColorData *color_data : data) {
+    for (ColorData *colorData : data) {
         dezibot.display.clear();
-        dezibot.display.println("place robot on\n" + color_data->name);
+        dezibot.display.println("place robot on\n" + colorData->name);
         delay(3000);
-        collectColorData();
-        color_data->calculate_statistical_data();
+        collectColorData(colorData);
+        colorData->calculate_statistical_data();
     }
 }
 
-void LineDetection::collectColorData() {
-    for (ColorData *colorData : data) {
-        ColorValues colorValues = {
-            colorDetection.getRed(),
-            colorDetection.getGreen(),
-            colorDetection.getBlue(),
-            colorDetection.getWhite()
-        };
-        colorValues.toRelative();
-        colorData->color_values_list.push_back(colorValues);
+void LineDetection::collectColorData(ColorData *colorData) {
+    for (int i = 0; i < amountCalibrationValues; i++) {
+        dezibot.display.clear();
+        dezibot.display.println("add values for\n" + colorData->name);
+        const ColorValues cur_color = getCurRelColor();
+        colorData->color_values_list.push_back(cur_color);
     }
+}
+
+LineDetection::ColorValues LineDetection::getCurRelColor()
+{
+    ColorValues values = ColorValues(
+        static_cast<float>(colorDetection.getRed()),
+        static_cast<float>(colorDetection.getGreen()),
+        static_cast<float>(colorDetection.getBlue()),
+        static_cast<float>(colorDetection.getWhite()));
+    values.toRelative();
+    return values;
 }
 
 void LineDetection::proceed() {
@@ -98,11 +105,17 @@ void LineDetection::proceed() {
     float distance_left = cur_color.distanceToMean(left.bound.expectation, left.bound.standard_deviation);
     float distance_right = cur_color.distanceToMean(right.bound.expectation, right.bound.standard_deviation);
     float distance_middle = cur_color.distanceToMean(middle.bound.expectation, middle.bound.standard_deviation);
-    // distance_indicator = cur_color.distanceToMean(indicator.bound.expectation, indicator.bound.standard_deviation);
+    float distance_indicator = cur_color.distanceToMean(indicator.bound.expectation, indicator.bound.standard_deviation);
     float distance_crossing = cur_color.distanceToMean(crossing.bound.expectation, crossing.bound.standard_deviation);
     float distance_background = cur_color.distanceToMean(background.bound.expectation, background.bound.standard_deviation);
 
-    std::vector<float> distances = {distance_left, distance_right, distance_middle, /*distance_indicator,*/ distance_crossing, distance_background};
+    /*dezibot.display.println("left: " + String(distance_left));
+    dezibot.display.println("right: " + String(distance_right));
+    dezibot.display.println("middle: " + String(distance_middle));
+    dezibot.display.println("cross: " + String(distance_crossing));
+    dezibot.display.println("back: " + String(distance_background));*/
+
+    std::vector<float> distances = {distance_left, distance_right, distance_middle, distance_indicator, distance_crossing, distance_background};
     float min_distance = *std::min_element(distances.begin(), distances.end());
 
     if(min_distance == distance_left) {
@@ -111,9 +124,9 @@ void LineDetection::proceed() {
         linePart = RIGHT;
     } else if(min_distance == distance_middle) {
         linePart = MIDDLE;
-    } /*else if(min_distance == distance_indicator) {
+    } else if(min_distance == distance_indicator) {
         linePart = INDICATOR;
-    }*/ else if(min_distance == distance_crossing) {
+    } else if(min_distance == distance_crossing) {
         linePart = CROSSING;
     } else if(min_distance == distance_background) {
         linePart = BACKGROUND;

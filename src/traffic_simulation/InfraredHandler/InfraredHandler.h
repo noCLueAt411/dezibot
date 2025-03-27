@@ -14,7 +14,7 @@ public:
 private:
     Dezibot& dezibot;
     const uint16_t threshold = 4050;  // Anpassen je nach Sensorverhalten
-    const uint16_t thresholdDezibotOnRightSide = 4000;
+    const uint16_t thresholdDezibotOnRightSide = 4010;
 };
 
 #endif

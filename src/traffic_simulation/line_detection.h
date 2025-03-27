@@ -22,7 +22,6 @@ public:
 
     LinePart getLinePart() { return linePart; }
 
-private:
     struct ColorValues {
         float red, green, blue, white;
 
@@ -42,6 +41,7 @@ private:
         float distanceToMean(const ColorValues &expectation, const ColorValues &std_dev);
     };
 
+private:
     struct ColorBound {
     public:
         ColorValues expectation;
@@ -85,10 +85,10 @@ private:
     ColorData crossing = ColorData("crossing");
     ColorData background = ColorData("background");
 
-    std::vector<ColorData *> data = {&left, &right, &middle, /*&indicator,*/ &crossing, &background};
+    std::vector<ColorData *> data = {&left, &right, &middle, &indicator, &crossing, &background};
 
     void calibrateColors();
-    void collectColorData();
+    void collectColorData(ColorData *color_data);
 
 
     ColorValues getCurRelColor();
