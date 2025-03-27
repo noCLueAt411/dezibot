@@ -1,16 +1,22 @@
 #include "line_detection.h"
+#include "InfraredHandler/InfraredHandler.h"
 
 
 Dezibot dezibot;
 LineDetection lineDetection(dezibot);
+InfraredHandler ir(dezibot);
 
 void setup() {
     dezibot.begin();
     lineDetection.begin();
+    ir.begin(); 
 }
 
 
 void loop() {
+
+    ir.obstacleInFront();
+
     lineDetection.proceed();
     LinePart linePart = lineDetection.getLinePart();
 
